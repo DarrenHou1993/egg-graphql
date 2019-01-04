@@ -25,11 +25,10 @@ const { resolveGraphiQLString } = require('apollo-server-module-graphiql');
 function graphiqlKoa(options) {
   return ctx => {
     const query = ctx.request.query;
-    return resolveGraphiQLString(query, options, ctx)
-      .then(graphiqlString => {
-        ctx.set('Content-Type', 'text/html');
-        ctx.body = graphiqlString;
-      });
+    return resolveGraphiQLString(query, options, ctx).then(graphiqlString => {
+      ctx.set('Content-Type', 'text/html');
+      ctx.body = graphiqlString;
+    });
   };
 }
 
@@ -43,23 +42,26 @@ module.exports = (_, app) => {
   }
 
   return async (ctx, next) => {
+    const { onPreGraphiQL, onPreGraphQL, apolloServerOptions } = options;
+
     /* istanbul ignore else */
     if (ctx.path === graphQLRouter) {
       if (ctx.request.accepts([ 'json', 'html' ]) === 'html' && graphiql) {
-        if (options.onPreGraphiQL) {
-          await options.onPreGraphiQL(ctx);
+        if (onPreGraphiQL) {
+          await onPreGraphiQL(ctx);
         }
         return graphiqlKoa({
           endpointURL: graphQLRouter,
         })(ctx);
       }
-      if (options.onPreGraphQL) {
-        await options.onPreGraphQL(ctx);
+      if (onPreGraphQL) {
+        await onPreGraphQL(ctx);
       }
-      return graphqlKoa({
+      const serverOptions = Object.assign({}, apolloServerOptions, {
         schema: app.schema,
         context: ctx,
-      })(ctx);
+      });
+      return graphqlKoa(serverOptions)(ctx);
     }
     await next();
   };
